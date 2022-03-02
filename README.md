@@ -1,3 +1,5 @@
 A bit obsessive. Got to the point where version control was necessary. 
 
 Download all and run the slider, select the x,y,z comma seperated value text file and go to town. Or run the fingerprints1 file to get some instant tile results (as its setup when I wrote this description) 
+
+![01 mm high pass](https://user-images.githubusercontent.com/41928151/156450953-c8ae799b-be52-4c3d-a040-85554dfa2056.PNG)
