@@ -31,14 +31,15 @@ def make_interface(window_name):
     
     file_path = easygui.fileopenbox()
 
-    cv2.namedWindow(window_name)
-    cv2.createTrackbar('PPMMultiplier',window_name,10,20, nothing)
-    cv2.createTrackbar('STD_bounds_Lower',window_name,25,100,nothing)
-    cv2.createTrackbar('STD_bounds_Upper',window_name,75,100,nothing)
-    cv2.createTrackbar('ImFill',window_name,0,20,nothing)
-    cv2.createTrackbar('HighPassFrequency',window_name,10,100,nothing)
+    cv2.namedWindow(window_name) #default, max. All have min of 0
+        
+    cv2.createTrackbar('SizeCanv.',window_name,10,30, nothing)
+    cv2.createTrackbar('MinSigma',window_name,25,100,nothing)
+    cv2.createTrackbar('MaxSigma',window_name,75,100,nothing)
+    cv2.createTrackbar('fill gaps',window_name,1,5,nothing)
+    cv2.createTrackbar('HighPass',window_name,10,100,nothing)
     cv2.createTrackbar('Contrast',window_name,0,100,nothing)
-    cv2.createTrackbar('Threshold',window_name,0,100,nothing)
+    cv2.createTrackbar('Threshold',window_name,0,255,nothing)
 
     return file_path
 
@@ -50,42 +51,17 @@ def imfill2(image,radius,blank=0):
 
     return dst 
 
-
-def imfill(img):
-    # https://stackoverflow.com/questions/36294025/python-equivalent-to-matlab-funciton-imfill-for-grayscale
-    # Use the matlab reference Soille, P., Morphological Image Analysis: Principles and Applications, Springer-Verlag, 1999, pp. 208-209.
-    #  6.3.7  Fillhole
-    # The holes of a binary image correspond to the set of its regional minima which
-    # are  not  connected  to  the image  border.  This  definition  holds  for  grey scale
-    # images.  Hence,  filling  the holes of a  grey scale image comes down  to remove
-    # all  minima  which  are  not  connected  to  the  image  border, or,  equivalently,
-    # impose  the  set  of minima  which  are  connected  to  the  image  border.  The
-    # marker image 1m  used  in  the morphological reconstruction by erosion is set
-    # to the maximum image value except along its border where the values of the
-    # original image are kept:
-
-    seed = np.ones_like(img)*255
-    img[ : ,0] = 0
-    img[ : ,-1] = 0
-    img[ 0 ,:] = 0
-    img[ -1 ,:] = 0
-    seed[ : ,0] = 0
-    seed[ : ,-1] = 0
-    seed[ 0 ,:] = 0
-    seed[ -1 ,:] = 0
-
-    
-    fill_img = reconstruction(seed, img, method='erosion')
-
-    return fill_img
+def threshold(image,Threshold,set_to=255,method=cv2.THRESH_BINARY):
+    ret, thresh_img = cv2.threshold(image, Threshold, set_to, method)
+    return thresh_img
 
 def get_values(window_name):
     """get the values from the interface for a particular window"""
-    PPMMultiplier = cv2.getTrackbarPos('PPMMultiplier',window_name)
-    STD_bounds_Lower = cv2.getTrackbarPos('STD_bounds_Lower',window_name)
-    STD_bounds_Upper = cv2.getTrackbarPos('STD_bounds_Upper',window_name)
-    ImFill = cv2.getTrackbarPos('ImFill',window_name)
-    HighPassFrequency = cv2.getTrackbarPos('HighPassFrequency',window_name)
+    PPMMultiplier = cv2.getTrackbarPos('SizeCanv.',window_name)
+    STD_bounds_Lower = cv2.getTrackbarPos('MinSigma',window_name)
+    STD_bounds_Upper = cv2.getTrackbarPos('MaxSigma',window_name)
+    ImFill = cv2.getTrackbarPos('fill gaps',window_name)
+    HighPassFrequency = cv2.getTrackbarPos('HighPass',window_name)
     Contrast = cv2.getTrackbarPos('Contrast',window_name)
     Threshold = cv2.getTrackbarPos('Threshold',window_name)
     return PPMMultiplier, STD_bounds_Lower, STD_bounds_Upper, ImFill, HighPassFrequency, Contrast, Threshold
@@ -125,11 +101,11 @@ def run_pipeline(source_data, PPMMultiplier, STD_bounds_lower,
 
     mean_z = Zs.mean()
     ZSTD = statistics.stdev(Zs)
-
+    
     image = np.ones ((XPixels+1, YPixels+1)) * 0 #multiply by zero to make black, 255 white
     
     if STD_bounds_lower < STD_bounds_upper:
-        print(STD_bounds_lower,STD_bounds_upper)
+        #print(STD_bounds_lower,STD_bounds_upper)
         ZNormals = (Zs - mean_z)/ZSTD
         ZNormals = [z if (z > STD_bounds_lower) else (STD_bounds_lower) for z in ZNormals] #lazy. Force to -2 or 2 range
         ZNormals = [z if (z < STD_bounds_upper) else STD_bounds_upper for z in ZNormals ] #this has 95% of data
@@ -149,11 +125,13 @@ def run_pipeline(source_data, PPMMultiplier, STD_bounds_lower,
     if HighPassFrequency: #if 0 then not used
         image = highpass(image, HighPassFrequency)
 
-    
+    if Threshold:
+        image = threshold(image,Threshold)
+        
     return(image)
     
 
-def run_interface(window_name="slider control for input data"):
+def run_interface(window_name="Fingerprint madness"):
     """Run the interface"""
     file_path = make_interface(window_name)
     source_data = read_fingerprints(file_path)
@@ -164,11 +142,18 @@ def run_interface(window_name="slider control for input data"):
         PPMMultiplier = PPMMultiplier/10
         STD_bounds_lower = (STD_bounds_lower/10) - 5 #default: -2.5 to 2.5, total range of -5 to 5
         STD_bounds_upper = (STD_bounds_upper/10) - 5
-        HighPassFrequency = (HighPassFrequency/10) #default: 1, range 0.1 to 10, if 0 then not used
+        HighPassFrequency = HighPassFrequency/10
+        ImFill = max((ImFill*10)-9,0) #default: 1, range 0.1 to 10, if 0 then not used
         
-
+        if Threshold: #!=0
+            newThreshold = abs(Threshold - 256) #0 still 0, but 1 is now white #lazy
+            Threshold=newThreshold #for some reason, won't work without this             
+        
         image = run_pipeline(source_data, PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold)
+        
         cv2.imshow('image',image.astype(np.uint8))
+        #cv2.imshow(window_name,image.astype(np.uint8))
+        
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             return(image)
