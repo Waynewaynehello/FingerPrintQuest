@@ -69,18 +69,22 @@ def get_values(window_name):
     
 #run the actual image processing dependent on interface
 
-def run_pipeline(source_data, PPMMultiplier, STD_bounds_lower,
+def run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower,
                  STD_bounds_upper, ImFill, HighPassFrequency,
                  Contrast, Threshold):
 
-    Xs = source_data[:,0] #SWAPPED FOR THIS MACHINE
-    Ys = source_data[:,1]  #from CMM coordinates
-    Zs = source_data[:,2] 
+    Xs = source_dict['Xs']
+    Ys = source_dict['Ys']
+    Zs = source_dict['Zs']
 
-    XMin,XMax = Xs.min(), Xs.max()
-    YMin,YMax = Ys.min(), Ys.max()
-    ZMin,ZMax = Zs.min(), Zs.max()
+    XMin = source_dict['XMin']
+    YMin = source_dict['YMin']    
+    ZMin = source_dict['ZMin']
 
+    XMax = source_dict['XMax']
+    YMax = source_dict['YMax']
+    ZMax = source_dict['ZMax']
+    
     PixelsPerMM = (len(Xs) / ((XMax-XMin) * (YMax-YMin)))**(1/2)
     PixelsPerMM = PixelsPerMM * PPMMultiplier #lower values reduce noise, hide data since pixels not evenly dispersed
     #print('PPMM = {}, total points = {}'.format(PixelsPerMM,len(Xs)))
@@ -117,6 +121,8 @@ def run_pipeline(source_data, PPMMultiplier, STD_bounds_lower,
                 
             image[XIndex,YIndex] = depth #actual data is colored
 
+    
+    
     image = image.astype(np.uint8)
 
     if ImFill: #acts as both on/off and radius of search 
@@ -131,11 +137,24 @@ def run_pipeline(source_data, PPMMultiplier, STD_bounds_lower,
     return(image)
     
 
-def run_interface(window_name="Fingerprint madness"):
+def run_interface(window_name="Fingerprintsss"):
     """Run the interface"""
     file_path = make_interface(window_name)
     source_data = read_fingerprints(file_path)
 
+    Xs = source_data[:,0] #SWAPPED FOR THIS MACHINE
+    Ys = source_data[:,1]  #from CMM coordinates
+    Zs = source_data[:,2]
+
+    XMin,XMax = Xs.min(), Xs.max()
+    YMin,YMax = Ys.min(), Ys.max()
+    ZMin,ZMax = Zs.min(), Zs.max()
+
+    source_dict = {'Xs':Xs,'Ys':Ys,'Zs':Zs,'XMin':XMin,'XMax':XMax,'YMin':YMin,'YMax':YMax,'ZMin':ZMin,'ZMax':ZMax}
+    
+    
+    print('original ZMIN {} Max {}'.format(ZMin,ZMax))
+    
     
     while(1):
         PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold = get_values(window_name)
@@ -149,7 +168,7 @@ def run_interface(window_name="Fingerprint madness"):
             newThreshold = abs(Threshold - 256) #0 still 0, but 1 is now white #lazy
             Threshold=newThreshold #for some reason, won't work without this             
         
-        image = run_pipeline(source_data, PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold)
+        image = run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold)
         
         cv2.imshow('image',image.astype(np.uint8))
         #cv2.imshow(window_name,image.astype(np.uint8))
