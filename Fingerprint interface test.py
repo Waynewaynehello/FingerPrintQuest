@@ -4,8 +4,6 @@ import numpy as np
 import math
 import easygui
 import statistics
-from skimage.morphology import reconstruction
-
 
 
 #read a file
@@ -38,7 +36,7 @@ def make_interface(window_name):
     cv2.createTrackbar('MaxSigma',window_name,75,100,nothing)
     cv2.createTrackbar('fill gaps',window_name,1,5,nothing)
     cv2.createTrackbar('HighPass',window_name,10,100,nothing)
-    cv2.createTrackbar('Contrast',window_name,0,100,nothing)
+    cv2.createTrackbar('Mean',window_name,0,1000,nothing)
     cv2.createTrackbar('Threshold',window_name,0,255,nothing)
 
     return file_path
@@ -62,16 +60,16 @@ def get_values(window_name):
     STD_bounds_Upper = cv2.getTrackbarPos('MaxSigma',window_name)
     ImFill = cv2.getTrackbarPos('fill gaps',window_name)
     HighPassFrequency = cv2.getTrackbarPos('HighPass',window_name)
-    Contrast = cv2.getTrackbarPos('Contrast',window_name)
+    Mean = cv2.getTrackbarPos('Mean',window_name)
     Threshold = cv2.getTrackbarPos('Threshold',window_name)
-    return PPMMultiplier, STD_bounds_Lower, STD_bounds_Upper, ImFill, HighPassFrequency, Contrast, Threshold
+    return PPMMultiplier, STD_bounds_Lower, STD_bounds_Upper, ImFill, HighPassFrequency, Mean, Threshold
 
     
 #run the actual image processing dependent on interface
 
 def run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower,
                  STD_bounds_upper, ImFill, HighPassFrequency,
-                 Contrast, Threshold):
+                 Mean, Threshold):
 
     Xs = source_dict['Xs']
     Ys = source_dict['Ys']
@@ -103,7 +101,11 @@ def run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower,
 
     #attempted normalization from Stephen Joy, ResearchGate
 
-    mean_z = Zs.mean()
+    if not Mean: #Controllable mean slider centered around std. Not actually the mean tho #yujie
+        mean_z = Zs.mean()
+    else:
+        mean_z = (ZMax * Mean) + ZMin
+
     ZSTD = statistics.stdev(Zs)
     
     image = np.ones ((XPixels+1, YPixels+1)) * 0 #multiply by zero to make black, 255 white
@@ -157,18 +159,19 @@ def run_interface(window_name="Fingerprintsss"):
     
     
     while(1):
-        PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold = get_values(window_name)
+        PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Mean, Threshold = get_values(window_name)
         PPMMultiplier = PPMMultiplier/10
         STD_bounds_lower = (STD_bounds_lower/10) - 5 #default: -2.5 to 2.5, total range of -5 to 5
         STD_bounds_upper = (STD_bounds_upper/10) - 5
         HighPassFrequency = HighPassFrequency/10
+        Mean = Mean/1000 #1000: mean is equal to max value, 1: min value. 0: true mean
         ImFill = max((ImFill*10)-9,0) #default: 1, range 0.1 to 10, if 0 then not used
         
         if Threshold: #!=0
             newThreshold = abs(Threshold - 256) #0 still 0, but 1 is now white #lazy
             Threshold=newThreshold #for some reason, won't work without this             
         
-        image = run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Contrast, Threshold)
+        image = run_pipeline(source_dict, PPMMultiplier, STD_bounds_lower, STD_bounds_upper, ImFill, HighPassFrequency, Mean, Threshold)
         
         cv2.imshow('image',image.astype(np.uint8))
         #cv2.imshow(window_name,image.astype(np.uint8))
