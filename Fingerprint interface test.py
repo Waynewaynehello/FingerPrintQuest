@@ -35,7 +35,7 @@ def make_interface(window_name):
     cv2.createTrackbar('MinSigma',window_name,25,100,nothing)
     cv2.createTrackbar('MaxSigma',window_name,75,100,nothing)
     cv2.createTrackbar('fill gaps',window_name,1,5,nothing)
-    cv2.createTrackbar('HighPass',window_name,10,100,nothing)
+    cv2.createTrackbar('HighPass',window_name,0,200,nothing)
     cv2.createTrackbar('Mean',window_name,0,1000,nothing)
     cv2.createTrackbar('Threshold',window_name,0,255,nothing)
     cv2.createTrackbar('SwapXY',window_name,0,1,nothing)
@@ -173,7 +173,7 @@ def run_interface(window_name="Fingerprintsss"):
         PPMMultiplier = PPMMultiplier/10
         STD_bounds_lower = (STD_bounds_lower/10) - 5 #default: -2.5 to 2.5, total range of -5 to 5
         STD_bounds_upper = (STD_bounds_upper/10) - 5
-        HighPassFrequency = HighPassFrequency/10
+        HighPassFrequency = HighPassFrequency
         Mean = Mean/1000 #1000: mean is equal to max value, 1: min value. 0: true mean
         ImFill = max((ImFill*10)-9,0) #default: 1, range 0.1 to 10, if 0 then not used
         
